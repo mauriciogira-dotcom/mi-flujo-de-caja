@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mini-app-financiera",
+      "runtimeExecutable": "/Users/mauriciogiraldovergara/.nvm/versions/node/v20.20.2/bin/node",
+      "runtimeArgs": [
+        "/Users/mauriciogiraldovergara/.nvm/versions/node/v20.20.2/bin/next",
+        "dev",
+        "--turbopack"
+      ],
+      "cwd": "/Users/mauriciogiraldovergara/Documents/Mini App Financiera",
+      "port": 3000
+    }
+  ]
+}
