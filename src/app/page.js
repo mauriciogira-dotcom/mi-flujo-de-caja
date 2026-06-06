@@ -56,26 +56,41 @@ export default function Home() {
       });
   }, [session]);
 
-  // Detectar ?upgraded=true en la URL (regreso de Stripe)
+  // Detectar ?upgraded=true al montar (antes de que la sesión cargue)
+  const [wasUpgraded, setWasUpgraded] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgraded') === 'true') {
-      // Pequeño delay para que el webhook de Stripe haya actualizado la BD
-      setTimeout(() => {
-        if (session?.user) {
-          supabase
-            .from('perfiles')
-            .select('es_premium')
-            .eq('user_id', session.user.id)
-            .single()
-            .then(({ data }) => setEsPremium(data?.es_premium ?? false));
-        }
-        // Limpiar el query param de la URL
-        window.history.replaceState({}, '', '/');
-      }, 2000);
+      setWasUpgraded(true);
+      window.history.replaceState({}, '', '/'); // limpiar URL de inmediato
     }
-  }, [session]);
+  }, []); // solo una vez al montar
+
+  // Cuando tengamos sesión Y veníamos de un pago, hacer polling hasta que es_premium=true
+  useEffect(() => {
+    if (!wasUpgraded || !session?.user) return;
+
+    let intentos = 0;
+    const verificar = () => {
+      intentos++;
+      supabase
+        .from('perfiles')
+        .select('es_premium')
+        .eq('user_id', session.user.id)
+        .single()
+        .then(({ data }) => {
+          if (data?.es_premium) {
+            setEsPremium(true);
+            setWasUpgraded(false);
+          } else if (intentos < 10) {
+            // Reintentar cada 3 s hasta 30 s (webhook puede tardar)
+            setTimeout(verificar, 3000);
+          }
+        });
+    };
+    setTimeout(verificar, 1500); // primer chequeo a 1.5 s
+  }, [wasUpgraded, session]);
 
   if (session === undefined) return <LoadingScreen />;
 

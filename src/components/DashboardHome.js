@@ -616,7 +616,7 @@ export default function DashboardHome({ session, esPremium = false }) {
                 <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                   <div className="max-w-sm">
                     <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-0.5 rounded-full mb-2">
-                      ✦ Premium · COP $29.000
+                      ✦ Premium · USD ~$7
                     </span>
                     <h4 className="font-extrabold text-lg leading-snug">
                       ¿Sabes cómo te afecta la inflación en 10 años?
