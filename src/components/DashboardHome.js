@@ -224,22 +224,22 @@ export default function DashboardHome({ session, esPremium = false }) {
   // ── Estado de carga inicial ──
   const [cargandoDatos, setCargandoDatos] = useState(true);
 
-  // ── Estado para suscripción Stripe ──
+  // ── Estado para pago Wompi ──
   const [suscribiendo, setSuscribiendo] = useState(false);
 
   const handleSuscribirse = async () => {
     setSuscribiendo(true);
     try {
-      const res = await fetch('/api/stripe/checkout', {
+      const res = await fetch('/api/wompi/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail: session?.user?.email }),
       });
       const { url, error } = await res.json();
       if (error) throw new Error(error);
-      window.location.href = url; // Redirigir a Stripe Checkout
+      window.location.href = url; // Redirigir a Wompi Checkout
     } catch (err) {
-      console.error('Error Stripe:', err.message);
+      console.error('Error Wompi:', err.message);
       setSuscribiendo(false);
     }
   };
@@ -616,7 +616,7 @@ export default function DashboardHome({ session, esPremium = false }) {
                 <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
                   <div className="max-w-sm">
                     <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-0.5 rounded-full mb-2">
-                      ✦ Premium · USD $7/mes
+                      ✦ Premium · COP $29.000
                     </span>
                     <h4 className="font-extrabold text-lg leading-snug">
                       ¿Sabes cómo te afecta la inflación en 10 años?
