@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import SimuladorInflacion from '@/components/SimuladorInflacion';
 
 /* ── Formato de moneda COP ── */
 const fmt = (v) =>
@@ -204,7 +205,7 @@ const CATS = {
 };
 
 /* ── Componente principal ── */
-export default function DashboardHome({ session }) {
+export default function DashboardHome({ session, esPremium = false }) {
   const [ingreso, setIngreso] = useState(0);
   const [gastos, setGastos] = useState({
     vivienda: 0,
@@ -222,6 +223,26 @@ export default function DashboardHome({ session }) {
 
   // ── Estado de carga inicial ──
   const [cargandoDatos, setCargandoDatos] = useState(true);
+
+  // ── Estado para suscripción Stripe ──
+  const [suscribiendo, setSuscribiendo] = useState(false);
+
+  const handleSuscribirse = async () => {
+    setSuscribiendo(true);
+    try {
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userEmail: session?.user?.email }),
+      });
+      const { url, error } = await res.json();
+      if (error) throw new Error(error);
+      window.location.href = url; // Redirigir a Stripe Checkout
+    } catch (err) {
+      console.error('Error Stripe:', err.message);
+      setSuscribiendo(false);
+    }
+  };
 
   // ── Cargar presupuesto guardado al autenticarse ──
   useEffect(() => {
@@ -585,37 +606,52 @@ export default function DashboardHome({ session }) {
               {tab === 'pie' ? <DonutChart data={dataPie} /> : <BarChart data={dataBar} />}
             </div>
 
-            {/* Banner Paywall */}
-            <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-2xl shadow-lg">
-              <div className="absolute -top-8 -right-8 w-36 h-36 bg-white rounded-full opacity-5" />
-              <div className="absolute -bottom-10 -left-6 w-28 h-28 bg-white rounded-full opacity-5" />
-              <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
-                <div className="max-w-sm">
-                  <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-0.5 rounded-full mb-2">
-                    ✦ Premium
-                  </span>
-                  <h4 className="font-extrabold text-lg leading-snug">
-                    ¿Sabes cómo te afecta la inflación en 5 años?
-                  </h4>
-                  <p className="text-sm text-blue-100 mt-1.5 leading-relaxed">
-                    Desbloquea el simulador de inflación, proyecciones de inversión y alertas de desequilibrio presupuestal.
-                  </p>
-                  <ul className="mt-2.5 space-y-1.5">
-                    {['Simulador inflación CPI', 'Proyección 5–20 años', 'Escenarios de inversión'].map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-xs text-blue-200">
-                        <span className="opacity-70"><Ico.Lock /></span> {f}
-                      </li>
-                    ))}
-                  </ul>
+            {/* Premium: Simulador o Paywall */}
+            {esPremium ? (
+              <SimuladorInflacion ingreso={ingreso} />
+            ) : (
+              <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 text-white p-6 rounded-2xl shadow-lg">
+                <div className="absolute -top-8 -right-8 w-36 h-36 bg-white rounded-full opacity-5" />
+                <div className="absolute -bottom-10 -left-6 w-28 h-28 bg-white rounded-full opacity-5" />
+                <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+                  <div className="max-w-sm">
+                    <span className="inline-block bg-amber-400 text-amber-900 text-xs font-bold px-2.5 py-0.5 rounded-full mb-2">
+                      ✦ Premium · USD $7/mes
+                    </span>
+                    <h4 className="font-extrabold text-lg leading-snug">
+                      ¿Sabes cómo te afecta la inflación en 10 años?
+                    </h4>
+                    <p className="text-sm text-blue-100 mt-1.5 leading-relaxed">
+                      Desbloquea el simulador de inflación con proyecciones de inversión a 20 años y escenarios de rendimiento.
+                    </p>
+                    <ul className="mt-2.5 space-y-1.5">
+                      {['Simulador inflación IPC', 'Proyección 1–20 años', 'Escenarios de inversión'].map((f) => (
+                        <li key={f} className="flex items-center gap-2 text-xs text-blue-200">
+                          <span className="opacity-70"><Ico.Lock /></span> {f}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <button
+                    onClick={handleSuscribirse}
+                    disabled={suscribiendo}
+                    className="flex-shrink-0 bg-white text-blue-700 hover:bg-blue-50 active:scale-95 disabled:opacity-70 transition-all px-6 py-3 rounded-xl font-bold text-sm shadow-md whitespace-nowrap flex items-center gap-2"
+                  >
+                    {suscribiendo ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                          <path className="opacity-75" fill="#1d4ed8" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                        </svg>
+                        Redirigiendo…
+                      </>
+                    ) : (
+                      'Activar Premium →'
+                    )}
+                  </button>
                 </div>
-                <button
-                  onClick={() => alert('¡Próximamente!\n\nRegistra tu correo para acceso anticipado.')}
-                  className="flex-shrink-0 bg-white text-blue-700 hover:bg-blue-50 active:scale-95 transition-all px-6 py-3 rounded-xl font-bold text-sm shadow-md whitespace-nowrap"
-                >
-                  Probar Premium →
-                </button>
               </div>
-            </div>
+            )}
 
           </div>
         </div>

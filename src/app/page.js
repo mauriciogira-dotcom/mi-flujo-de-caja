@@ -22,7 +22,8 @@ function LoadingScreen() {
 
 export default function Home() {
   // undefined = aún resolviendo | null = no autenticado | objeto = sesión activa
-  const [session, setSession] = useState(undefined);
+  const [session,   setSession]   = useState(undefined);
+  const [esPremium, setEsPremium] = useState(false);
 
   useEffect(() => {
     // Leer sesión existente
@@ -38,11 +39,52 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Cargar estado premium cuando la sesión esté disponible
+  useEffect(() => {
+    if (!session?.user) {
+      setEsPremium(false);
+      return;
+    }
+
+    supabase
+      .from('perfiles')
+      .select('es_premium')
+      .eq('user_id', session.user.id)
+      .single()
+      .then(({ data }) => {
+        setEsPremium(data?.es_premium ?? false);
+      });
+  }, [session]);
+
+  // Detectar ?upgraded=true en la URL (regreso de Stripe)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('upgraded') === 'true') {
+      // Pequeño delay para que el webhook de Stripe haya actualizado la BD
+      setTimeout(() => {
+        if (session?.user) {
+          supabase
+            .from('perfiles')
+            .select('es_premium')
+            .eq('user_id', session.user.id)
+            .single()
+            .then(({ data }) => setEsPremium(data?.es_premium ?? false));
+        }
+        // Limpiar el query param de la URL
+        window.history.replaceState({}, '', '/');
+      }, 2000);
+    }
+  }, [session]);
+
   if (session === undefined) return <LoadingScreen />;
 
   return (
     <main>
-      {session ? <DashboardHome session={session} /> : <AuthForm />}
+      {session
+        ? <DashboardHome session={session} esPremium={esPremium} />
+        : <AuthForm />
+      }
     </main>
   );
 }
