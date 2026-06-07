@@ -56,41 +56,66 @@ export default function Home() {
       });
   }, [session]);
 
-  // Detectar ?upgraded=true al montar (antes de que la sesión cargue)
-  const [wasUpgraded, setWasUpgraded] = useState(false);
+  // Detectar ?upgraded=true y el ?id=<transactionId> de Wompi al montar
+  const [wasUpgraded,   setWasUpgraded]   = useState(false);
+  const [transactionId, setTransactionId] = useState(null);
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('upgraded') === 'true') {
       setWasUpgraded(true);
-      window.history.replaceState({}, '', '/'); // limpiar URL de inmediato
+      setTransactionId(params.get('id') ?? null); // Wompi adjunta ?id=<txId>
+      window.history.replaceState({}, '', '/');    // limpiar URL de inmediato
     }
-  }, []); // solo una vez al montar
+  }, []);
 
-  // Cuando tengamos sesión Y veníamos de un pago, hacer polling hasta que es_premium=true
+  // Cuando tengamos sesión Y veníamos de un pago, verificar con Wompi API
   useEffect(() => {
     if (!wasUpgraded || !session?.user) return;
 
-    let intentos = 0;
-    const verificar = () => {
-      intentos++;
-      supabase
-        .from('perfiles')
-        .select('es_premium')
-        .eq('user_id', session.user.id)
-        .single()
-        .then(({ data }) => {
-          if (data?.es_premium) {
+    const activarPremium = async () => {
+      // 1️⃣ Si tenemos el ID de transacción, verificamos directamente con Wompi
+      if (transactionId) {
+        try {
+          const res = await fetch('/api/wompi/verify', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ transactionId, userId: session.user.id }),
+          });
+          const data = await res.json();
+          if (data?.approved) {
             setEsPremium(true);
             setWasUpgraded(false);
-          } else if (intentos < 10) {
-            // Reintentar cada 3 s hasta 30 s (webhook puede tardar)
-            setTimeout(verificar, 3000);
+            return;
           }
-        });
+        } catch (err) {
+          console.error('Error verificando transacción Wompi:', err.message);
+        }
+      }
+
+      // 2️⃣ Fallback: polling a Supabase (útil si el webhook ya corrió primero)
+      let intentos = 0;
+      const verificarDB = () => {
+        intentos++;
+        supabase
+          .from('perfiles')
+          .select('es_premium')
+          .eq('user_id', session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data?.es_premium) {
+              setEsPremium(true);
+              setWasUpgraded(false);
+            } else if (intentos < 8) {
+              setTimeout(verificarDB, 3000);
+            }
+          });
+      };
+      setTimeout(verificarDB, 1500);
     };
-    setTimeout(verificar, 1500); // primer chequeo a 1.5 s
-  }, [wasUpgraded, session]);
+
+    activarPremium();
+  }, [wasUpgraded, session, transactionId]);
 
   if (session === undefined) return <LoadingScreen />;
 
