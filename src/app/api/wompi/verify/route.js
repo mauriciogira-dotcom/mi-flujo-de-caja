@@ -21,11 +21,17 @@ export async function POST(req) {
 
     // Consultar la API de Wompi (sandbox vs producción según la llave pública)
     const isSandbox = process.env.WOMPI_PUBLIC_KEY?.startsWith('pub_test_');
-    const apiBase  = isSandbox
+    const apiBase   = isSandbox
       ? 'https://sandbox.wompi.co/v1'
       : 'https://production.wompi.co/v1';
 
-    const wompiRes = await fetch(`${apiBase}/transactions/${transactionId}`);
+    // La llave privada es necesaria para consultar transacciones en producción
+    const privateKey = process.env.WOMPI_PRIVATE_KEY;
+    const headers    = privateKey
+      ? { Authorization: `Bearer ${privateKey}` }
+      : {};
+
+    const wompiRes = await fetch(`${apiBase}/transactions/${transactionId}`, { headers });
 
     if (!wompiRes.ok) {
       return Response.json({ approved: false, error: 'Wompi API error' }, { status: 200 });
